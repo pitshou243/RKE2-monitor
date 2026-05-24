@@ -95,6 +95,7 @@ The following components must already exist in the cluster:
 | node-exporter           | Node metrics               |
 | CoreDNS metrics enabled | DNS alerting               |
 | kubelet metrics enabled | Runtime/kubelet visibility |
+
 Typically these are already present when using: Rancher Monitoring or any Prometheus stack
 
 ## Installation
