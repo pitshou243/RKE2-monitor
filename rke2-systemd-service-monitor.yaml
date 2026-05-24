@@ -1,3 +1,5 @@
+## Optional RKE2 service alerts. If node-exporter is running with the systemd collector enabled, add:
+
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
