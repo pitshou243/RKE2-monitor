@@ -1,10 +1,10 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: rke2-early-warning-rules
+  name: rke2-monitor
   namespace: cattle-monitoring-system
   labels:
-    app: rke2-early-warning-monitor
+    app: rke2-monitor
     release: rancher-monitoring
 spec:
   groups:
