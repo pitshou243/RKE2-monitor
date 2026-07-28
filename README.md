@@ -13,6 +13,16 @@ This project ships primarily as a set of:
 
 - PrometheusRule alert rules
 
+## Disclaimer
+
+This project provides example Prometheus alerting rules intended to assist with monitoring and troubleshooting RKE2 clusters.
+
+These rules are provided as-is and are not a replacement for comprehensive monitoring or operational best practices. Alert thresholds and expressions should be reviewed and adjusted to match your environment, workload characteristics, and operational requirements.
+
+Metric availability depends on the deployed monitoring stack, Kubernetes version, enabled exporters, and scrape configuration. Some alerts may remain inactive if the required metrics are not available.
+
+Before deploying these rules in production, validate them in a non-production environment and adjust thresholds as needed.
+  
 ## Why This Exists
 
 Many RKE2 incidents follow recognizable failure patterns before the cluster becomes unavailable:
