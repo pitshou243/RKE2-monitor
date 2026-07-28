@@ -1,115 +1,207 @@
-# RKE2-monitor
+# RKE2 Monitor
+
 ## Overview
 
-The RKE2 Monitor is a lightweight Prometheus-based monitoring package designed to proactively detect instability in RKE2 clusters before it becomes a full outage.
-The goal is to:
+RKE2 Monitor is a collection of Prometheus alerting rules that helps identify common RKE2 cluster issues before they become service-impacting incidents.
 
-- Detect degradation early
-- Surface actionable symptoms
-- Reduce time-to-detection during incidents
-- Provide consistent operational visibility across RKE2 clusters
+The alerts are designed to provide early visibility into the health of the Kubernetes control plane, worker nodes, networking components, system workloads, and certificates, allowing administrators to detect and investigate problems before they escalate into outages.
 
-This project ships primarily as a set of:
+The project currently provides:
 
-- PrometheusRule alert rules
+- PrometheusRule resources for Prometheus Operator and Rancher Monitoring
 
 ## Disclaimer
 
 This project provides example Prometheus alerting rules intended to assist with monitoring and troubleshooting RKE2 clusters.
 
-These rules are provided as-is and are not a replacement for comprehensive monitoring or operational best practices. Alert thresholds and expressions should be reviewed and adjusted to match your environment, workload characteristics, and operational requirements.
+These rules should be reviewed and adjusted to meet the operational requirements of your environment. Alert thresholds, durations, and expressions may require tuning depending on cluster size, workload characteristics, Kubernetes version, and monitoring configuration.
 
-Metric availability depends on the deployed monitoring stack, Kubernetes version, enabled exporters, and scrape configuration. Some alerts may remain inactive if the required metrics are not available.
+Some alerts depend on metrics that may not be available in every deployment. Always validate the rules in a non-production environment before deploying them to production clusters.
 
-Before deploying these rules in production, validate them in a non-production environment and adjust thresholds as needed.
-  
-## Why This Exists
+---
 
-Many RKE2 incidents follow recognizable failure patterns before the cluster becomes unavailable:
-| Failure Pattern                 | Common Symptoms                          |
-| ------------------------------- | ---------------------------------------- |
-| kube-apiserver degradation      | Slow kubectl, 5xx errors, probe failures |
-| kubelet instability             | Pods stuck Pending or ContainerCreating  |
-| Node pressure                   | DiskPressure, MemoryPressure, IO wait    |
-| Runtime degradation             | containerd errors, pod startup delays    |
-| DNS failures                    | CoreDNS crashloops, SERVFAIL spikes      |
-| CNI instability                 | Canal/Calico/Cilium pods unhealthy       |
-| Certificate expiration          | kubelet auth failures                    |
-| Disk exhaustion                 | etcd instability, image pull failures    |
-| Control plane component failure | Scheduler/controller-manager unavailable |
+## Purpose
 
-Most environments already expose these metrics through Prometheus — the gap is usually alerting and operational visibility.
-## What This Collects
+Many RKE2 incidents exhibit warning signs before users experience an outage. These alert rules are intended to identify those warning signs early and provide actionable information for troubleshooting.
 
-The RKE2 monitor evaluates metrics from:
-| Component               | Metrics Source                   |
-| ----------------------- | -------------------------------- |
-| kube-apiserver          | Kubernetes control plane metrics |
-| kube-scheduler          | Kubernetes control plane metrics |
+| Failure Pattern | Typical Symptoms |
+|----------------|------------------|
+| API server degradation | Slow API responses, 5xx errors, failing health probes |
+| Kubelet instability | Pods stuck in Pending or ContainerCreating |
+| Node resource pressure | MemoryPressure, DiskPressure, high I/O wait |
+| Container runtime degradation | Container startup failures, runtime errors |
+| DNS failures | CoreDNS failures, increased SERVFAIL responses |
+| CNI instability | Unhealthy Canal, Calico, Cilium, or Flannel components |
+| Certificate expiration | Authentication failures due to expiring kubelet certificates |
+| Disk exhaustion | Image pull failures, etcd instability |
+| Control plane component failures | Scheduler or controller-manager unavailable |
+
+---
+
+## Metrics Used
+
+The alert rules evaluate metrics provided by existing monitoring components.
+
+| Component | Metrics Source |
+|----------|----------------|
+| kube-apiserver | Kubernetes control plane metrics |
+| kube-scheduler | Kubernetes control plane metrics |
 | kube-controller-manager | Kubernetes control plane metrics |
-| kubelet                 | kubelet metrics                  |
-| containerd runtime      | kubelet runtime metrics          |
-| Node health             | node-exporter                    |
-| Kubernetes objects      | kube-state-metrics               |
-| DNS                     | CoreDNS metrics                  |
-| CNI components          | kube-state-metrics               |
-| Certificates            | kubelet certificate metrics      |
+| kubelet | kubelet metrics |
+| Container runtime | kubelet runtime metrics |
+| Node health | node-exporter |
+| Kubernetes resources | kube-state-metrics |
+| DNS | CoreDNS metrics |
+| CNI components | kube-state-metrics |
+| Kubelet certificates | kubelet certificate metrics |
+
+No additional exporters are installed by this project.
+
+---
 
 ## Included Alerts
+
 ### Control Plane Health
-| Alert                            | Purpose                           |
-| -------------------------------- | --------------------------------- |
-| `RKE2KubeAPIServerDown`          | Detect API server outages         |
-| `RKE2KubeAPIServerHighErrorRate` | Detect elevated API failures      |
-| `RKE2KubeAPIServerHighLatency`   | Detect API slowness               |
-| `RKE2KubeControllerManagerDown`  | Detect controller-manager failure |
-| `RKE2KubeSchedulerDown`          | Detect scheduler failure          |
+
+| Alert | Description |
+|------|-------------|
+| `RKE2KubeAPIServerDown` | Detects unavailable API servers |
+| `RKE2KubeAPIServerHighErrorRate` | Detects elevated API server error rates |
+| `RKE2KubeAPIServerHighLatency` | Detects slow API server responses |
+| `RKE2KubeControllerManagerDown` | Detects unavailable controller-manager instances |
+| `RKE2KubeSchedulerDown` | Detects unavailable scheduler instances |
+
 ### Node Health
-| Alert                          | Purpose                    |
-| ------------------------------ | -------------------------- |
-| `RKE2NodeNotReady`             | Detect unavailable nodes   |
-| `RKE2NodeMemoryPressure`       | Detect memory exhaustion   |
-| `RKE2NodeDiskPressure`         | Detect disk pressure       |
-| `RKE2NodeFilesystemAlmostFull` | Detect low disk space      |
-| `RKE2NodeHighIOWait`           | Detect storage bottlenecks |
-### Kubelet & Runtime Health
-| Alert                        | Purpose                              |
-| ---------------------------- | ------------------------------------ |
-| `RKE2KubeletDown`            | Detect kubelet outages               |
-| `RKE2ContainerRuntimeErrors` | Detect runtime/containerd issues     |
-| `RKE2PodStartupLatencyHigh`  | Detect slow pod lifecycle operations |
-### Networking & DNS
-| Alert                       | Purpose                   |
-| --------------------------- | ------------------------- |
-| `RKE2CNIPluginPodsNotReady` | Detect unhealthy CNI pods |
-| `RKE2CoreDNSNotReady`       | Detect DNS outages        |
-| `RKE2CoreDNSHighErrorRate`  | Detect DNS instability    |
+
+| Alert | Description |
+|------|-------------|
+| `RKE2NodeNotReady` | Detects nodes reporting NotReady |
+| `RKE2NodeMemoryPressure` | Detects memory pressure conditions |
+| `RKE2NodeDiskPressure` | Detects disk pressure conditions |
+| `RKE2NodeFilesystemAlmostFull` | Detects low filesystem capacity |
+| `RKE2NodeHighIOWait` | Detects excessive storage I/O wait |
+
+### Kubelet and Runtime Health
+
+| Alert | Description |
+|------|-------------|
+| `RKE2KubeletDown` | Detects unavailable kubelets |
+| `RKE2ContainerRuntimeErrors` | Detects container runtime errors |
+| `RKE2PodStartupLatencyHigh` | Detects increased pod startup latency |
+
+### Networking and DNS
+
+| Alert | Description |
+|------|-------------|
+| `RKE2CNIPluginPodsNotReady` | Detects unhealthy CNI components |
+| `RKE2CoreDNSNotReady` | Detects unavailable CoreDNS pods |
+| `RKE2CoreDNSHighErrorRate` | Detects elevated CoreDNS error responses |
+
 ### Workload Stability
-| Alert                        | Purpose                            |
-| ---------------------------- | ---------------------------------- |
-| `RKE2SystemPodsCrashLooping` | Detect repeated crashes            |
-| `RKE2SystemPodPending`       | Detect scheduling/runtime stalls   |
-| `RKE2SystemPodFailed`        | Detect failed critical system pods |
+
+| Alert | Description |
+|------|-------------|
+| `RKE2SystemPodsCrashLooping` | Detects frequent restarts of critical system pods |
+| `RKE2SystemPodPending` | Detects critical system pods remaining Pending |
+| `RKE2SystemPodFailed` | Detects failed system pods |
+
 ### Certificate Health
-| Alert                                      | Purpose                                    |
-| ------------------------------------------ | ------------------------------------------ |
-| `RKE2KubeletClientCertificateExpiringSoon` | Detect upcoming kubelet client cert expiry |
-| `RKE2KubeletServerCertificateExpiringSoon` | Detect upcoming kubelet server cert expiry |
-### Requirements
 
-The following components must already exist in the cluster:
-| Requirement             | Purpose                    |
-| ----------------------- | -------------------------- |
-| Prometheus              | Alert evaluation           |
-| kube-state-metrics      | Kubernetes object metrics  |
-| node-exporter           | Node metrics               |
-| CoreDNS metrics enabled | DNS alerting               |
-| kubelet metrics enabled | Runtime/kubelet visibility |
+| Alert | Description |
+|------|-------------|
+| `RKE2KubeletClientCertificateExpiringSoon` | Detects kubelet client certificates approaching expiration |
+| `RKE2KubeletServerCertificateExpiringSoon` | Detects kubelet server certificates approaching expiration |
 
-Typically these are already present when using: Rancher Monitoring or any Prometheus stack
+---
+
+## Requirements
+
+The following monitoring components must already be deployed:
+
+| Component | Purpose |
+|----------|---------|
+| Prometheus | Evaluates alert rules |
+| Prometheus Operator or Rancher Monitoring | Manages PrometheusRule resources |
+| kube-state-metrics | Provides Kubernetes object metrics |
+| node-exporter | Provides host-level metrics |
+| CoreDNS metrics | Enables DNS-related alerts |
+| kubelet metrics | Enables kubelet and runtime alerts |
+
+These components are typically available when using Rancher Monitoring or another Prometheus Operator-based monitoring stack.
+
+---
 
 ## Installation
-### Apply the PrometheusRule
+
+Apply the alert rules:
+
+```bash
 kubectl apply -f rke2-monitor.yaml
-### Verify Rule Loading
-kubectl get prometheusrules -A
+```
+
+Verify that the PrometheusRule resource was created:
+
+```bash
+kubectl get prometheusrule
+```
+
+Describe the resource to ensure Prometheus accepted the rules:
+
+```bash
+kubectl describe prometheusrule rke2-monitor
+```
+
+---
+
+## Verification
+
+Confirm that Prometheus has loaded the alert rules.
+
+```promql
+ALERTS{alertname=~"RKE2.*"}
+```
+
+You can also verify that the required metrics exist before enabling alerts.
+
+Example:
+
+```promql
+up{job=~".*kube-apiserver.*"}
+```
+
+```promql
+kube_node_status_condition
+```
+
+```promql
+node_filesystem_avail_bytes
+```
+
+---
+
+## Customization
+
+Every environment is different. You may wish to customize:
+
+- Alert thresholds
+- Alert durations (`for`)
+- Namespace filters
+- Job name selectors
+- CNI pod selectors
+- Alert labels and severity levels
+
+Adjust the rules to align with your operational requirements before deploying them to production.
+
+---
+
+## Compatibility
+
+RKE2 Monitor has been designed for environments using:
+
+- RKE2
+- Rancher Monitoring
+- Prometheus Operator
+- kube-state-metrics
+- node-exporter
+
+Some alerts require optional metrics or collectors to be enabled. If the required metrics are unavailable, the corresponding alerts will remain inactive.
